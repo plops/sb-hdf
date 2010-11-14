@@ -18,8 +18,10 @@
 
 (defun s-create-simple (dimensions)
   (let* ((n (length dimensions))
-	 (dims (make-array n :element-type 'fixnum
-			   :initial-contents dimensions)))
+	 (dims (make-array n :element-type '(unsigned-byte 64)
+			   ;; in lisp x is last dimension
+			   ;; for hdf it should be first
+			   :initial-contents (reverse dimensions))))
     (sb-sys:with-pinned-objects (dims)
      (%s-create-simple n
 		     (sap-alien (sb-sys:vector-sap dims)
@@ -133,11 +135,15 @@
 
 (defun check ()
  (let ((data (make-array (list 3 3) :element-type 'single-float)))
+   (destructuring-bind (h w) (array-dimensions data)
+     (dotimes (j h)
+       (dotimes (i w)
+	 (setf (aref data j i) (* 1s0 (+ i j))))))
    (%open)
    ;; (%check-version 1 8 4)
 
    (let* ((file (%f-create "test.h5" +f-acc-trunc+ +p-default+ +p-default+))
-	  (dataspace (s-create-simple (reverse (array-dimensions data))))
+	  (dataspace (s-create-simple (array-dimensions data)))
 	  (datatype (%t-copy +t-native-float+))
 	  (status (%t-set-order datatype +order-le+))
 	  (dataset (%d-create2 file "FloatArray" datatype dataspace
